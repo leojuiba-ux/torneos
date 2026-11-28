@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 
 export default function LoginPage() {
@@ -79,6 +80,12 @@ export default function LoginPage() {
       )}
 
       {message && <p className="mt-4 text-sm">{message}</p>}
+
+      {step === "done" && (
+        <Link href="/" className="mt-4 inline-block rounded bg-black px-4 py-2 text-white">
+          Ir a mis torneos
+        </Link>
+      )}
     </main>
   );
 }
