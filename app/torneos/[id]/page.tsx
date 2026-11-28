@@ -367,12 +367,33 @@ function PartidoCard({
   const [error, setError] = useState("");
   const [guardando, setGuardando] = useState(false);
 
+  // ¿En qué set se decide el partido? (null = todavía no está decidido)
+  // Ejemplo al mejor de 3: quien gana 2 sets gana el partido y el set 3 ya no se juega.
+  const necesarios = Math.floor(torneo.sets_por_partido / 2) + 1;
+  let decididoEn: number | null = null;
+  {
+    let setsA = 0;
+    let setsB = 0;
+    for (let i = 0; i < filas.length; i++) {
+      if (filas[i].a === "" || filas[i].b === "") continue;
+      const ga = Number(filas[i].a);
+      const gb = Number(filas[i].b);
+      if (ga > gb) setsA++;
+      else if (gb > ga) setsB++;
+      if (setsA >= necesarios || setsB >= necesarios) {
+        decididoEn = i;
+        break;
+      }
+    }
+  }
+
   async function guardar(e: React.FormEvent) {
     e.preventDefault();
     setGuardando(true);
     setError("");
+    // Solo se envían los sets hasta que el partido se decide; lo que haya después se ignora.
     const sets = filas
-      .filter((f) => f.a !== "" && f.b !== "")
+      .filter((f, i) => (decididoEn === null || i <= decididoEn) && f.a !== "" && f.b !== "")
       .map((f) => ({ a: Number(f.a), b: Number(f.b) }));
     const { error } = await supabase.rpc("guardar_resultado", {
       p_partido: partido.id,
@@ -420,15 +441,21 @@ function PartidoCard({
 
       {abierto && (
         <form onSubmit={guardar} className="mt-3 flex flex-col gap-2">
-          <p className="text-xs opacity-70">Juegos de cada set (deja vacíos los sets que no se jueguen).</p>
-          {filas.map((f, i) => (
-            <div key={i} className="flex items-center gap-2 text-sm">
+          <p className="text-xs opacity-70">
+            Escribe solo los sets que se han jugado. Cuando alguien gana el partido, los sets que sobran se
+            bloquean.
+          </p>
+          {filas.map((f, i) => {
+            const bloqueado = decididoEn !== null && i > decididoEn;
+            return (
+            <div key={i} className={`flex items-center gap-2 text-sm ${bloqueado ? "opacity-40" : ""}`}>
               <span className="w-12">Set {i + 1}</span>
               <input
                 type="number"
                 min={0}
                 aria-label={`Juegos de ${nombreA} en el set ${i + 1}`}
                 value={f.a}
+                disabled={bloqueado}
                 onChange={(e) => setFilas(filas.map((x, j) => (j === i ? { ...x, a: e.target.value } : x)))}
                 className="w-16 rounded border p-1"
               />
@@ -439,12 +466,15 @@ function PartidoCard({
                 min={0}
                 aria-label={`Juegos de ${nombreB} en el set ${i + 1}`}
                 value={f.b}
+                disabled={bloqueado}
                 onChange={(e) => setFilas(filas.map((x, j) => (j === i ? { ...x, b: e.target.value } : x)))}
                 className="w-16 rounded border p-1"
               />
               <span>{nombreB}</span>
+              {bloqueado && <span className="text-xs">No hace falta</span>}
             </div>
-          ))}
+            );
+          })}
           <div className="flex gap-2">
             <button disabled={guardando} className="rounded bg-foreground px-3 py-1 text-background disabled:opacity-50">
               {guardando ? "Guardando…" : "Guardar"}
